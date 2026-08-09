@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoPipe — Event-Driven Image Processing</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --border: #475569;
+            --radius: 10px;
+        }
+
+        .light-theme {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #e2e8f0;
+            --bg-card: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: #cbd5e1;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        header h1 { font-size: 1.8rem; font-weight: 700; }
+        header h1 span { color: var(--accent); }
+
+        .theme-toggle {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .config-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .config-panel summary {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .config-grid label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .config-grid input {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+
+        .config-grid .full-width { grid-column: 1 / -1; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Upload area */
+        .upload-area {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent);
+            background: var(--bg-card);
+        }
+
+        .upload-area h3 { margin-bottom: 8px; font-size: 1.1rem; }
+        .upload-area p { color: var(--text-secondary); font-size: 0.85rem; }
+
+        .upload-area input[type="file"] { display: none; }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* Image cards */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+
+        .image-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .image-card .preview {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .image-card .preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-card .details { padding: 16px; }
+
+        .image-card .file-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .image-card .meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-processed { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+        .badge-logged { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+        .badge-pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+        /* Audit table */
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .audit-table th, .audit-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .audit-table th {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+        }
+
+        .audit-table td { color: var(--text-primary); }
+
+        .audit-table tr:hover { background: var(--bg-secondary); }
+
+        /* Activity log */
+        .activity-log {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .activity-log h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .log-entry {
+            font-size: 0.78rem;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            color: var(--text-secondary);
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+        }
+
+        .log-entry .time { color: var(--accent); margin-right: 8px; }
+        .log-entry.success .msg { color: var(--success); }
+        .log-entry.error .msg { color: var(--error); }
+        .log-entry.info .msg { color: var(--info); }
+
+        /* Architecture diagram */
+        .architecture {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background: var(--accent-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-refresh {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+        }
+
+        .btn-refresh:hover { background: var(--bg-card); color: var(--text-primary); }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state p { margin-top: 8px; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>PhotoPipe</span> — Image Processing</h1>
+            <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+        </header>
+
+        <!-- Configuration -->
+        <details class="config-panel" open>
+            <summary>Azure Configuration</summary>
+            <div class="config-grid">
+                <div>
+                    <label>Storage Account Name</label>
+                    <input type="text" id="storageAccount" placeholder="yournamephotopipe">
+                </div>
+                <div>
+                    <label>Function App URL</label>
+                    <input type="text" id="functionAppUrl" placeholder="https://yourname-photopipe-func.azurewebsites.net">
+                </div>
+                <div class="full-width">
+                    <label>SAS Token (starts with ?sv=)</label>
+                    <input type="password" id="sasToken" placeholder="?sv=2022-11-02&ss=b&srt=sco&sp=rwlc...">
+                </div>
+            </div>
+        </details>
+
+        <!-- Architecture diagram -->
+        <div class="architecture" id="archDiagram">  Upload Image ──> [ Blob Storage ] ──> [ Event Grid ] ──┬──> [ process-image() ] ──> [ image-results ]
+                         image-uploads     System Topic    │
+                                                           └──> [ audit-log() ]     ──> [ Table Storage ]</div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
+            <button class="tab-btn" onclick="switchTab('results')">Results <span id="resultsCount"></span></button>
+            <button class="tab-btn" onclick="switchTab('audit')">Audit Log <span id="auditCount"></span></button>
+        </div>
+
+        <!-- Upload Tab -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <h3>Drop an image here or click to browse</h3>
+                <p>Supports .jpg and .png files (other file types will only trigger the audit log)</p>
+                <input type="file" id="fileInput" accept="*/*">
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="value" id="statUploaded">0</div>
+                    <div class="label">Uploaded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="statProcessed">0</div>
+                    <div class="label">Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="statAuditEntries">0</div>
+                    <div class="label">Audit Entries</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="tab-results" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3>Processing Results</h3>
+                <button class="btn btn-refresh" onclick="loadResults()">Refresh</button>
+            </div>
+            <div class="results-grid" id="resultsGrid">
+                <div class="empty-state">
+                    <h3>No results yet</h3>
+                    <p>Upload an image to see processing results here</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Tab -->
+        <div id="tab-audit" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3>Audit Log</h3>
+                <button class="btn btn-refresh" onclick="loadAuditLog()">Refresh</button>
+            </div>
+            <div id="auditContainer">
+                <div class="empty-state">
+                    <h3>No audit entries yet</h3>
+                    <p>Upload any file to see audit log entries here</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity log -->
+        <div class="activity-log">
+            <h4>Activity Log</h4>
+            <div id="activityLog"></div>
+        </div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------------
+        // State
+        // ---------------------------------------------------------------
+        let uploadCount = 0;
+        let pollingInterval = null;
+
+        // ---------------------------------------------------------------
+        // Config helpers
+        // ---------------------------------------------------------------
+        function getStorageAccount() { return document.getElementById('storageAccount').value.trim(); }
+        function getSasToken() {
+            let token = document.getElementById('sasToken').value.trim();
+            if (token && !token.startsWith('?')) token = '?' + token;
+            return token;
+        }
+        function getFunctionAppUrl() {
+            let url = document.getElementById('functionAppUrl').value.trim();
+            return url.endsWith('/') ? url.slice(0, -1) : url;
+        }
+
+        // ---------------------------------------------------------------
+        // Logging
+        // ---------------------------------------------------------------
+        function log(message, level = 'info') {
+            const logDiv = document.getElementById('activityLog');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            entry.innerHTML = `<span class="time">[${time}]</span><span class="msg">${message}</span>`;
+            logDiv.prepend(entry);
+        }
+
+        // ---------------------------------------------------------------
+        // Theme
+        // ---------------------------------------------------------------
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+        }
+
+        // ---------------------------------------------------------------
+        // Tabs
+        // ---------------------------------------------------------------
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            if (tabName === 'results') loadResults();
+            if (tabName === 'audit') loadAuditLog();
+        }
+
+        // ---------------------------------------------------------------
+        // File upload via drag-and-drop or file picker
+        // ---------------------------------------------------------------
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                uploadFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                uploadFile(fileInput.files[0]);
+                fileInput.value = '';
+            }
+        });
+
+        // ---------------------------------------------------------------
+        // Upload a file to Blob Storage
+        // ---------------------------------------------------------------
+        async function uploadFile(file) {
+            const account = getStorageAccount();
+            const sas = getSasToken();
+
+            if (!account || !sas) {
+                log('Please fill in Storage Account Name and SAS Token in the configuration', 'error');
+                return;
+            }
+
+            const blobName = `${Date.now()}-${file.name}`;
+            const url = `https://${account}.blob.core.windows.net/image-uploads/${blobName}${sas}`;
+
+            log(`Uploading ${file.name} (${formatSize(file.size)}) to Blob Storage...`, 'info');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'x-ms-blob-type': 'BlockBlob',
+                        'Content-Type': file.type || 'application/octet-stream'
+                    },
+                    body: file
+                });
+
+                if (response.ok) {
+                    uploadCount++;
+                    document.getElementById('statUploaded').textContent = uploadCount;
+                    log(`Uploaded ${file.name} successfully. Event Grid will trigger processing...`, 'success');
+                    startPolling();
+                } else {
+                    const text = await response.text();
+                    log(`Upload failed (${response.status}): ${text}`, 'error');
+                }
+            } catch (err) {
+                log(`Upload error: ${err.message}`, 'error');
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Poll for results after upload
+        // ---------------------------------------------------------------
+        function startPolling() {
+            if (pollingInterval) return;
+
+            let pollCount = 0;
+            const maxPolls = 12; // Poll for up to 60 seconds
+
+            pollingInterval = setInterval(async () => {
+                pollCount++;
+                await loadResults();
+                await loadAuditLog();
+
+                if (pollCount >= maxPolls) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    log('Polling stopped after 60 seconds', 'info');
+                }
+            }, 5000);
+
+            log('Polling for results every 5 seconds...', 'info');
+        }
+
+        // ---------------------------------------------------------------
+        // Load processing results
+        // ---------------------------------------------------------------
+        async function loadResults() {
+            const funcUrl = getFunctionAppUrl();
+            if (!funcUrl) return;
+
+            try {
+                const response = await fetch(`${funcUrl}/api/get-results`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const results = await response.json();
+                document.getElementById('statProcessed').textContent = results.length;
+                document.getElementById('resultsCount').textContent = results.length > 0 ? `(${results.length})` : '';
+                renderResults(results);
+            } catch (err) {
+                // Silent fail during polling — don't spam the log
+            }
+        }
+
+        function renderResults(results) {
+            const grid = document.getElementById('resultsGrid');
+
+            if (results.length === 0) {
+                grid.innerHTML = '<div class="empty-state"><h3>No results yet</h3><p>Upload an image to see processing results here</p></div>';
+                return;
+            }
+
+            grid.innerHTML = results.map(r => `
+                <div class="image-card">
+                    <div class="preview">
+                        <img src="${r.originalUrl}" alt="${r.originalFileName}" onerror="this.parentElement.innerHTML='Preview not available'">
+                    </div>
+                    <div class="details">
+                        <div class="file-name">${r.originalFileName}</div>
+                        <div class="meta-row">
+                            <span>Status</span>
+                            <span class="badge badge-processed">${r.status}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Size</span>
+                            <span>${r.fileSizeFormatted}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Type</span>
+                            <span>${r.contentType}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Dimensions</span>
+                            <span>${r.imageAnalysis ? r.imageAnalysis.width + ' x ' + r.imageAnalysis.height : 'N/A'}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Thumbnail</span>
+                            <span>${r.thumbnail ? r.thumbnail.path : 'N/A'}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Processed At</span>
+                            <span>${new Date(r.processedAt).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ---------------------------------------------------------------
+        // Load audit log
+        // ---------------------------------------------------------------
+        async function loadAuditLog() {
+            const funcUrl = getFunctionAppUrl();
+            if (!funcUrl) return;
+
+            try {
+                const response = await fetch(`${funcUrl}/api/get-audit-log`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const entries = await response.json();
+                document.getElementById('statAuditEntries').textContent = entries.length;
+                document.getElementById('auditCount').textContent = entries.length > 0 ? `(${entries.length})` : '';
+                renderAuditLog(entries);
+            } catch (err) {
+                // Silent fail during polling
+            }
+        }
+
+        function renderAuditLog(entries) {
+            const container = document.getElementById('auditContainer');
+
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No audit entries yet</h3><p>Upload any file to see audit log entries here</p></div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Blob Name</th>
+                            <th>Content Type</th>
+                            <th>Size</th>
+                            <th>Event Type</th>
+                            <th>Event Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${entries.map(e => `
+                            <tr>
+                                <td>${e.blobName}</td>
+                                <td>${e.contentType}</td>
+                                <td>${formatSize(e.contentLength)}</td>
+                                <td>${e.eventType}</td>
+                                <td>${new Date(e.eventTime).toLocaleString()}</td>
+                                <td><span class="badge badge-logged">${e.status}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // ---------------------------------------------------------------
+        // Utilities
+        // ---------------------------------------------------------------
+        function formatSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ---------------------------------------------------------------
+        // Init
+        // ---------------------------------------------------------------
+        log('PhotoPipe ready. Configure your Azure settings and upload an image.', 'info');
+    </script>
+</body>
+</html>

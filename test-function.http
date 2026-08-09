@@ -1,0 +1,59 @@
+### PhotoPipe Function App — Test Requests
+### CST8917 Lab 4 | Winter 2026
+###
+### Usage: Update @baseUrl to your local or deployed Function App URL,
+###        then click "Send Request" above each test case.
+
+@baseUrl = http://localhost:7071/api
+
+### -----------------------------------------------------------------------
+### Test 1: Health Check
+### Expected: 200 OK with status "healthy"
+### -----------------------------------------------------------------------
+
+GET {{baseUrl}}/health
+
+### -----------------------------------------------------------------------
+### Test 2: Get Processing Results (empty initially)
+### Expected: 200 OK with an empty array []
+### -----------------------------------------------------------------------
+
+GET {{baseUrl}}/get-results
+
+### -----------------------------------------------------------------------
+### Test 3: Get Audit Log (empty initially)
+### Expected: 200 OK with an empty array []
+### -----------------------------------------------------------------------
+
+GET {{baseUrl}}/get-audit-log
+
+### -----------------------------------------------------------------------
+### Note on Event Grid-triggered functions
+### -----------------------------------------------------------------------
+### The process-image and audit-log functions are triggered by Event Grid
+### events, not HTTP requests. You cannot test them directly from here.
+###
+### To test the full pipeline:
+### 1. Deploy the Function App to Azure (Part 2)
+### 2. Configure Event Grid subscriptions (Part 3)
+### 3. Upload an image via the web client or directly to Blob Storage
+### 4. Use the get-results and get-audit-log endpoints below to verify
+###    that the functions processed the event successfully.
+### -----------------------------------------------------------------------
+
+### -----------------------------------------------------------------------
+### Test 4: Get Results After Upload (run after uploading an image)
+### Expected: 200 OK with array of metadata objects
+### -----------------------------------------------------------------------
+
+### Update this URL to your deployed function app
+# @deployedUrl = https://yourname-photopipe-func.azurewebsites.net/api
+
+# GET {{deployedUrl}}/get-results
+
+### -----------------------------------------------------------------------
+### Test 5: Get Audit Log After Upload (run after uploading an image)
+### Expected: 200 OK with array of audit entries
+### -----------------------------------------------------------------------
+
+# GET {{deployedUrl}}/get-audit-log
